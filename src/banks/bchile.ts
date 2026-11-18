@@ -2,7 +2,6 @@ import type { Page } from "puppeteer-core";
 import type { AccountBalance, BankMovement, BankScraper, CreditCardBalance, MovementSource, ScrapeResult, ScraperOptions } from "../types.js";
 import { MOVEMENT_SOURCE } from "../types.js";
 import { closePopups, delay, formatRut, monthYearLabel, normalizeDate, deduplicateMovements, deduplicateAcrossSources, normalizeInstallments } from "../utils.js";
-import { recordShape } from "../shape.js";
 import { runScraper } from "../infrastructure/scraper-runner.js";
 import type { BrowserSession } from "../infrastructure/browser.js";
 import { detect2FA, waitFor2FA } from "../actions/two-factor.js";
@@ -34,7 +33,7 @@ type ApiCartolaResponse = { movimientos: ApiCartolaMov[]; pagina: Array<{ totalR
 // ─── API helpers ─────────────────────────────────────────────────
 
 async function apiGet<T>(page: Page, path: string): Promise<T> {
-  const data = await page.evaluate(async (url: string) => {
+  return await page.evaluate(async (url: string) => {
     const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
     const xsrf = m ? decodeURIComponent(m[1]) : "";
     const headers: Record<string, string> = { Accept: "application/json" };
@@ -43,12 +42,10 @@ async function apiGet<T>(page: Page, path: string): Promise<T> {
     if (!r.ok) throw new Error(`API GET ${url} → ${r.status}`);
     return r.json();
   }, `${API_BASE}/${path}`);
-  recordShape(`GET ${path}`, data);
-  return data as T;
 }
 
 async function apiPost<T>(page: Page, path: string, body: unknown = {}): Promise<T> {
-  const data = await page.evaluate(async (url: string, bodyStr: string) => {
+  return await page.evaluate(async (url: string, bodyStr: string) => {
     const m = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
     const xsrf = m ? decodeURIComponent(m[1]) : "";
     const headers: Record<string, string> = { "Content-Type": "application/json", Accept: "application/json" };
@@ -57,8 +54,6 @@ async function apiPost<T>(page: Page, path: string, body: unknown = {}): Promise
     if (!r.ok) throw new Error(`API POST ${url} → ${r.status}`);
     return r.json();
   }, `${API_BASE}/${path}`, JSON.stringify(body));
-  recordShape(`POST ${path}`, data);
-  return data as T;
 }
 
 // ─── Login ───────────────────────────────────────────────────────
