@@ -47,6 +47,8 @@ export interface AccountBalance {
   balance?: number;
   /** Moneda del saldo (ej: "CLP", "USD") */
   currency?: string;
+  /** Todos los campos numéricos que el banco informa para esta cuenta (ej: disponible, línea de crédito…). Sin interpretar. */
+  details?: Record<string, number>;
   /** Movimientos de la cuenta */
   movements: BankMovement[];
 }
