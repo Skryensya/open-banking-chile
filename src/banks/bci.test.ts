@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { MOVEMENT_SOURCE } from "../types.js";
-import { normalizeBciApiMovements } from "./bci.js";
+import { normalizeBciApiMovements, looksLikeApiError } from "./bci.js";
 
 describe("normalizeBciApiMovements", () => {
   it("returns empty array for empty captures", () => {
@@ -87,5 +87,16 @@ describe("normalizeBciApiMovements", () => {
     const result = normalizeBciApiMovements([makeCapture("A"), makeCapture("B")]);
     expect(result).toHaveLength(2);
     expect(result.map((m) => m.description)).toEqual(["A", "B"]);
+  });
+});
+
+describe("looksLikeApiError", () => {
+  it("detects raw JSON API errors", () => {
+    expect(looksLikeApiError('{ "statusCode": 404, "message": "Resource not found" }')).toBe(true);
+    expect(looksLikeApiError('{"statusCode":500}')).toBe(true);
+  });
+  it("ignores normal pages", () => {
+    expect(looksLikeApiError("Bienvenido a tu banco en línea")).toBe(false);
+    expect(looksLikeApiError('{"statusCode":200}')).toBe(false);
   });
 });

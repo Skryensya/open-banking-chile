@@ -24,6 +24,11 @@ interface BciApiMovement {
   glosa: string;
 }
 
+/** True when the page body is a raw JSON API error (e.g. {"statusCode":404,"message":"Resource not found"}). */
+export function looksLikeApiError(text: string): boolean {
+  return /^\s*\{[\s\S]*"statusCode"\s*:\s*[45]\d\d/.test(text);
+}
+
 export function normalizeBciApiMovements(captures: unknown[]): BankMovement[] {
   const movements: BankMovement[] = [];
   for (const capture of captures) {
@@ -137,16 +142,26 @@ async function bciLogin(
 
   await delay(500);
   debugLog.push("3. Submitting login...");
-  await page.evaluate(() => {
-    const btn = document.querySelector('button[type="submit"]') as HTMLButtonElement | null;
-    if (btn) btn.disabled = false;
-    const form = document.getElementById("frm") as HTMLFormElement | null;
-    if (form) form.submit();
-    else if (btn) btn.click();
-  });
-  try { await page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 }); } catch { /* SPA */ }
+  // Real click (not form.submit()): the page's own submit handlers fill hidden fields
+  // (touch/transaccion/grupo) that the login API now requires; form.submit() skips them → 404.
+  const submitBtn = await page.$('#frm button[type="submit"]');
+  if (!submitBtn) {
+    const ss = await page.screenshot({ encoding: "base64" });
+    return { success: false, error: "Botón de envío del login no encontrado.", screenshot: ss as string };
+  }
+  await page.evaluate(() => { (document.querySelector('#frm button[type="submit"]') as HTMLButtonElement).disabled = false; });
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: "networkidle2", timeout: 30000 }).catch(() => { /* SPA */ }),
+    submitBtn.click(),
+  ]);
   await delay(3000);
   await doSave(page, "03-post-login");
+
+  const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 500) ?? "");
+  if (looksLikeApiError(bodyText)) {
+    const ss = await page.screenshot({ encoding: "base64" });
+    return { success: false, error: `El login de BCI devolvió un error de API: ${bodyText.slice(0, 120)}`, screenshot: ss as string };
+  }
 
   // 2FA
   if (await detect2FA(page, TWO_FACTOR_CONFIG)) {
@@ -419,7 +434,8 @@ async function scrapeBci(session: BrowserSession, options: ScraperOptions): Prom
   const allMovements: BankMovement[] = [];
   let balance: number | undefined;
 
-  if (await clickByTitle(page, "Últimos Movimientos")) {
+  const hasMovementsLink = await clickByTitle(page, "Últimos Movimientos");
+  if (hasMovementsLink) {
     const movFrame = await waitForFrame(page, IFRAME_PATTERNS.movements, 15000);
     if (movFrame) {
       await delay(3000);
@@ -483,7 +499,12 @@ async function scrapeBci(session: BrowserSession, options: ScraperOptions): Prom
   progress("Extrayendo datos de tarjeta de crédito...");
   debugLog.push("6. Navigating to credit cards...");
   const creditCards: CreditCardBalance[] = [];
-  if (await clickByTitle(page, "Tarjetas")) {
+  const hasCardsLink = await clickByTitle(page, "Tarjetas");
+  if (!hasMovementsLink && !hasCardsLink) {
+    const ss = await page.screenshot({ encoding: "base64" });
+    return { success: false, bank, accounts: [], error: "No se encontró el menú del portal BCI tras el login (¿login incompleto o portal cambió?).", screenshot: ss as string, debug: debugLog.join("\n") };
+  }
+  if (hasCardsLink) {
     await delay(3000);
     const cardLabels = await page.evaluate(() => {
       const selects = document.querySelectorAll("select.tdc");
