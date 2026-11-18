@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { DebugLog, deduplicateMovements, normalizeDate } from "./utils.js";
+import { DebugLog, deduplicateMovements, normalizeDate, parseChileanAmount } from "./utils.js";
 import { MOVEMENT_SOURCE } from "./types.js";
 import type { BankMovement } from "./types.js";
 
@@ -133,5 +133,14 @@ describe("currency-aware dedup", () => {
   it("does not merge identical rows in different currencies", () => {
     const base = { date: "01-01-2026", description: "X", amount: -10, balance: 5, source: MOVEMENT_SOURCE.account };
     expect(deduplicateMovements([{ ...base, currency: "CLP" }, { ...base, currency: "USD" }])).toHaveLength(2);
+  });
+});
+
+describe("parseChileanAmount", () => {
+  it.each([
+    ["$1.234.567", 1234567], ["-$50.000", -50000], ["$1.234", 1234], ["USD 12,50", 12.5],
+    ["1.234,56", 1234.56], ["12.50", 12.5], ["-USD 3,05", -3.05], ["", 0], ["abc", 0],
+  ])("%s → %s", (input, expected) => {
+    expect(parseChileanAmount(input)).toBe(expected);
   });
 });

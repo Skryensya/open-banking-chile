@@ -32,6 +32,7 @@ Opciones:
   --pretty         Formatear JSON con indentación
   --movements      Solo imprimir movimientos (sin metadata)
   --owner <T|A|B>  Filtro Titular/Adicional para TC (default: B = todos)
+  --debug          Imprimir el log de pasos por stderr (contiene saldos/máscaras)
   --help, -h       Mostrar esta ayuda
 
 Variables de entorno:
@@ -148,6 +149,9 @@ Ejemplos:
     const count = accountCount + cardCount;
     spinner.stop(`${bank.name} — ${count} movimiento${count !== 1 ? "s" : ""} obtenido${count !== 1 ? "s" : ""}`);
   }
+
+  // --debug: print the step log to stderr (never stdout). Contains balances/masks: keep it local.
+  if (flags.has("--debug") && result.debug) console.error(result.debug);
 
   const indent = flags.has("--pretty") ? 2 : undefined;
 

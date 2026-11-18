@@ -115,16 +115,24 @@ export const MONTHS_MAP: Record<string, string> = {
 };
 
 /**
- * Parsea un monto en formato chileno a número entero.
- * Maneja: "$1.234.567", "-$50.000", "$1.234,56" (CLP con decimales).
+ * Parsea un monto en formato chileno, preservando decimales (hasta 2).
+ * "$1.234.567" → 1234567, "-$50.000" → -50000, "USD 12,50" → 12.5, "1.234,56" → 1234.56.
+ * Coma = decimal. Un solo punto seguido de 1-2 dígitos también se trata como decimal ("12.50");
+ * punto seguido de 3 dígitos = miles ("1.234"). Texto sin dígitos → 0.
  */
 export function parseChileanAmount(text: string): number {
   const clean = text.replace(/[^0-9.,-]/g, "");
   if (!clean) return 0;
   const isNegative = clean.startsWith("-") || text.includes("-$");
-  // Remove thousand separators (dots), convert decimal comma to dot
-  const normalized = clean.replace(/-/g, "").replace(/\./g, "").replace(",", ".");
-  const amount = parseInt(normalized, 10) || 0;
+  let digits = clean.replace(/-/g, "");
+  if (digits.includes(",")) {
+    digits = digits.replace(/\./g, "").replace(",", ".");
+  } else if (/^\d+\.\d{1,2}$/.test(digits)) {
+    // dot-decimal, keep as is
+  } else {
+    digits = digits.replace(/\./g, "");
+  }
+  const amount = Math.round((parseFloat(digits) || 0) * 100) / 100;
   return isNegative ? -amount : amount;
 }
 

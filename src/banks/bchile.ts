@@ -289,6 +289,11 @@ async function fetchCreditCardData(page: Page, fullName: string, debugLog: strin
       const nextDue = nf.fechaProximoVencimiento ?? nf.fechaVencimiento;
       if (nextDue) ccEntry.nextDueDate = normalizeDate(nextDue);
       const unbilledMovs: BankMovement[] = [];
+      // Diagnostics (names/categories only, no amounts): to learn how currency is encoded.
+      const origenes = new Map<string, number>();
+      for (const mov of nf.listaMovNoFactur) origenes.set(String(mov.origenTransaccion), (origenes.get(String(mov.origenTransaccion)) ?? 0) + 1);
+      debugLog.push(`  [diag] unbilled keys: ${Object.keys(nf.listaMovNoFactur[0] ?? {}).join(",")}`);
+      debugLog.push(`  [diag] unbilled origenTransaccion: ${JSON.stringify(Object.fromEntries(origenes))}`);
       for (const mov of nf.listaMovNoFactur) {
         const amount = mov.montoCompra < 0 ? Math.abs(mov.montoCompra) : -Math.abs(mov.montoCompra);
         unbilledMovs.push({ date: normalizeDate(mov.fechaTransaccionString), description: mov.glosaTransaccion.trim(), amount, balance: 0, source: MOVEMENT_SOURCE.credit_card_unbilled, card: mascara, installments: normalizeInstallments(mov.despliegueCuotas) });
@@ -432,6 +437,7 @@ async function scrapeBchile(session: BrowserSession, options: ScraperOptions): P
     const clp = saldos.find(s => s.moneda === "CLP" && s.tipo === "CUENTA_CORRIENTE");
     if (clp) { balance = clp.disponible; debugLog.push(`  Balance CLP: $${balance}`); }
     debugLog.push(`  Saldos: ${saldos.length} entrada(s)`);
+    debugLog.push(`  [diag] saldos keys: ${Object.keys(saldos[0] ?? {}).join(",")}`);
   } catch { /* ignore */ }
 
   const fullName = products.nombre || `${clientData.datosCliente.nombres} ${clientData.datosCliente.apellidoPaterno}`.trim();
