@@ -43,6 +43,8 @@ export interface AccountBalance {
   label?: string;
   /** Saldo actual */
   balance?: number;
+  /** Moneda del saldo (ej: "CLP", "USD") */
+  currency?: string;
   /** Movimientos de la cuenta */
   movements: BankMovement[];
 }

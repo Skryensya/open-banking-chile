@@ -1,5 +1,5 @@
 import type { Page } from "puppeteer-core";
-import type { BankMovement, BankScraper, CreditCardBalance, MovementSource, ScrapeResult, ScraperOptions } from "../types.js";
+import type { AccountBalance, BankMovement, BankScraper, CreditCardBalance, MovementSource, ScrapeResult, ScraperOptions } from "../types.js";
 import { MOVEMENT_SOURCE } from "../types.js";
 import { closePopups, delay, formatRut, monthYearLabel, normalizeDate, deduplicateMovements, deduplicateAcrossSources, normalizeInstallments } from "../utils.js";
 import { runScraper } from "../infrastructure/scraper-runner.js";
@@ -358,6 +358,21 @@ async function fetchCreditCardData(page: Page, fullName: string, debugLog: strin
   return { movements, creditCards };
 }
 
+/**
+ * One AccountBalance per bank-reported balance. The merged movement list can't be
+ * attributed to a single account (the cartola is fetched per account but flattened),
+ * so it is attached to the first CLP checking account, or the first entry.
+ */
+export function buildAccounts(
+  saldos: Array<{ label: string; currency: string; balance: number }>,
+  fallbackBalance: number | undefined,
+  movements: BankMovement[],
+): AccountBalance[] {
+  if (saldos.length === 0) return [{ balance: fallbackBalance, movements }];
+  const main = Math.max(0, saldos.findIndex(s => s.currency === "CLP" && /CORRIENTE/i.test(s.label)));
+  return saldos.map((s, i) => ({ label: s.label, currency: s.currency, balance: s.balance, movements: i === main ? movements : [] }));
+}
+
 // ─── Main scrape function ────────────────────────────────────────
 
 async function scrapeBchile(session: BrowserSession, options: ScraperOptions): Promise<ScrapeResult> {
@@ -406,10 +421,16 @@ async function scrapeBchile(session: BrowserSession, options: ScraperOptions): P
 
   // Balance
   let balance: number | undefined;
+  // One entry per account/currency returned by the bank (never summed across currencies).
+  let saldoAccounts: Array<{ label: string; currency: string; balance: number }> = [];
   try {
-    const saldos = await apiGet<Array<{ moneda: string; tipo: string; disponible: number }>>(page, "bff-pp-prod-ctas-saldos/productos/cuentas/saldos");
+    const saldos = await apiGet<Array<{ moneda: string; tipo: string; disponible: number; mascara?: string; numero?: string }>>(page, "bff-pp-prod-ctas-saldos/productos/cuentas/saldos");
+    saldoAccounts = saldos
+      .filter(s => typeof s.disponible === "number")
+      .map(s => ({ label: [s.tipo, s.mascara ?? s.numero].filter(Boolean).join(" "), currency: s.moneda, balance: s.disponible }));
     const clp = saldos.find(s => s.moneda === "CLP" && s.tipo === "CUENTA_CORRIENTE");
     if (clp) { balance = clp.disponible; debugLog.push(`  Balance CLP: $${balance}`); }
+    debugLog.push(`  Saldos: ${saldos.length} entrada(s)`);
   } catch { /* ignore */ }
 
   const fullName = products.nombre || `${clientData.datosCliente.nombres} ${clientData.datosCliente.apellidoPaterno}`.trim();
@@ -446,7 +467,7 @@ async function scrapeBchile(session: BrowserSession, options: ScraperOptions): P
   return {
     success: true,
     bank,
-    accounts: [{ balance, movements: deduplicateMovements(acctResult.movements) }],
+    accounts: buildAccounts(saldoAccounts, balance, deduplicateMovements(acctResult.movements)),
     creditCards: tcResult.creditCards.length > 0 ? tcResult.creditCards : undefined,
     screenshot: ss,
     debug: debugLog.join("\n"),
