@@ -1,5 +1,6 @@
 import type { ScrapeResult, ScraperOptions } from "../types.js";
 import { logout } from "../utils.js";
+import { flushShapes } from "../shape.js";
 import { launchBrowser, type BrowserOptions, type BrowserSession } from "./browser.js";
 
 export type ScrapeFn = (
@@ -53,6 +54,7 @@ export async function runScraper(
       debug: session?.debugLog.join("\n"),
     };
   } finally {
+    flushShapes();
     if (session?.browser) {
       try {
         const pages = await session.browser.pages();

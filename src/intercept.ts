@@ -1,4 +1,5 @@
 import type { Page } from "puppeteer-core";
+import { recordShape } from "./shape.js";
 
 export interface EndpointConfig {
   /** Unique identifier used to retrieve captured data */
@@ -39,6 +40,7 @@ export async function createInterceptor(
     (id: string, dataJson: string) => {
       try {
         const data: unknown = JSON.parse(dataJson);
+        recordShape(`intercepted ${id}`, data);
         const existing = captures.get(id) ?? [];
         existing.push(data);
         captures.set(id, existing);
