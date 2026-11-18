@@ -36,6 +36,7 @@ export function normalizeBciApiMovements(captures: unknown[]): BankMovement[] {
       const amount = m.tipo === "C" ? -raw : raw;
       const dateStr = m.fechaMovimiento?.split("T")[0] ?? "";
       movements.push({
+        currency: "CLP",
         date: normalizeDate(dateStr),
         description: m.glosa ?? "",
         amount,
@@ -199,7 +200,7 @@ async function extractMovementsFromFrame(frame: Frame, debugLog: string[]): Prom
       const abonoAmount = r.abono ? parseChileanAmount(r.abono) : 0;
       const amount = cargoAmount > 0 ? -cargoAmount : abonoAmount;
       if (amount === 0) continue;
-      all.push({ date: normalizeDate(r.date), description: r.description, amount, balance: 0, source: MOVEMENT_SOURCE.account });
+      all.push({ currency: "CLP", date: normalizeDate(r.date), description: r.description, amount, balance: 0, source: MOVEMENT_SOURCE.account });
     }
     debugLog.push(`  Page ${pageIndex + 1}: ${raw.length} raw movements`);
 
@@ -316,6 +317,7 @@ async function extractTCMovements(
       if (absAmount === 0) continue;
 
       allMovements.push({
+        currency: tab.includes("USD") ? "USD" : "CLP",
         date: normalizeDate(r.date),
         description: r.description,
         amount: r.isCargo ? -absAmount : absAmount,

@@ -213,7 +213,7 @@ export function deduplicateMovements(movements: BankMovement[]): BankMovement[] 
     // The same row re-fetched across paginated pages will have the same balance,
     // so including it in the key correctly removes pagination duplicates while
     // keeping legitimately repeated transactions (which have different balances).
-    const key = `${m.date}|${m.description}|${m.amount}|${m.balance ?? ""}|${m.source}|${m.owner ?? ""}`;
+    const key = `${m.date}|${m.description}|${m.amount}|${m.currency ?? ""}|${m.balance ?? ""}|${m.source}|${m.owner ?? ""}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -242,12 +242,12 @@ export function deduplicateAcrossSources(movements: BankMovement[]): BankMovemen
   const billedKeys = new Set<string>();
   for (const m of movements) {
     if (m.source === "credit_card_billed") {
-      billedKeys.add(`${m.date}|${m.description}|${m.amount}`);
+      billedKeys.add(`${m.date}|${m.description}|${m.amount}|${m.currency ?? ""}`);
     }
   }
   return movements.filter(m => {
     if (m.source !== "credit_card_unbilled") return true;
-    return !billedKeys.has(`${m.date}|${m.description}|${m.amount}`);
+    return !billedKeys.has(`${m.date}|${m.description}|${m.amount}|${m.currency ?? ""}`);
   });
 }
 

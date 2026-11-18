@@ -205,12 +205,12 @@ async function bchileLogin(
 
 // ─── Data extraction ─────────────────────────────────────────────
 
-function cartolaMovToMovement(mov: ApiCartolaMov): BankMovement {
-  return { date: normalizeDate(mov.fechaContable), description: mov.descripcion.trim(), amount: mov.tipo === "cargo" ? -Math.abs(mov.monto) : Math.abs(mov.monto), balance: mov.saldo, source: MOVEMENT_SOURCE.account };
+function cartolaMovToMovement(mov: ApiCartolaMov, currency?: string): BankMovement {
+  return { currency, date: normalizeDate(mov.fechaContable), description: mov.descripcion.trim(), amount: mov.tipo === "cargo" ? -Math.abs(mov.monto) : Math.abs(mov.monto), balance: mov.saldo, source: MOVEMENT_SOURCE.account };
 }
 
-function facturadoToMovement(tx: ApiTransaccionFacturada, source: MovementSource, cardMask?: string): BankMovement {
-  return { date: normalizeDate(tx.fechaTransaccionString), description: tx.descripcion.trim(), amount: tx.grupo === "pagos" ? Math.abs(tx.montoTransaccion) : -Math.abs(tx.montoTransaccion), balance: 0, source, card: cardMask, installments: normalizeInstallments(tx.cuotas) };
+function facturadoToMovement(tx: ApiTransaccionFacturada, source: MovementSource, cardMask?: string, currency?: string): BankMovement {
+  return { currency, date: normalizeDate(tx.fechaTransaccionString), description: tx.descripcion.trim(), amount: tx.grupo === "pagos" ? Math.abs(tx.montoTransaccion) : -Math.abs(tx.montoTransaccion), balance: 0, source, card: cardMask, installments: normalizeInstallments(tx.cuotas) };
 }
 
 async function fetchAccountMovements(page: Page, products: ApiProduct[], fullName: string, rut: string, debugLog: string[]): Promise<{ movements: BankMovement[]; balance?: number }> {
@@ -235,7 +235,7 @@ async function fetchAccountMovements(page: Page, products: ApiProduct[], fullNam
       const cartola = await apiPost<ApiCartolaResponse>(page, "bff-pper-prd-cta-movimientos/movimientos/getCartola", { cuentaSeleccionada, cabecera: { statusGenerico: true, paginacionDesde: 1 } });
 
       if (cartola.movimientos) {
-        for (const mov of cartola.movimientos) movements.push(cartolaMovToMovement(mov));
+        for (const mov of cartola.movimientos) movements.push(cartolaMovToMovement(mov, acct.codigoMoneda));
         if (balance === undefined && acct.codigoMoneda === "CLP" && cartola.movimientos.length > 0) balance = cartola.movimientos[0].saldo;
 
         let hasMore = cartola.movimientos.length > 0 && (cartola.pagina?.[0]?.masPaginas ?? false);
@@ -244,7 +244,7 @@ async function fetchAccountMovements(page: Page, products: ApiProduct[], fullNam
           try {
             const next = await apiPost<ApiCartolaResponse>(page, "bff-pper-prd-cta-movimientos/movimientos/getCartola", { cuentaSeleccionada, cabecera: { statusGenerico: true, paginacionDesde: offset } });
             if (!next.movimientos?.length) break;
-            for (const mov of next.movimientos) movements.push(cartolaMovToMovement(mov));
+            for (const mov of next.movimientos) movements.push(cartolaMovToMovement(mov, acct.codigoMoneda));
             offset += next.movimientos.length;
             hasMore = next.pagina?.[0]?.masPaginas ?? false;
           } catch { hasMore = false; }
@@ -314,7 +314,8 @@ async function fetchCreditCardData(page: Page, fullName: string, debugLog: strin
             apiPost<ApiResumenFacturado>(page, "tarjetas/estadocuenta/nacional/resumen-por-fecha", resumenBody),
             apiPost<ApiResumenFacturado>(page, "tarjetas/estadocuenta/internacional/resumen-por-fecha", resumenBody),
           ]);
-          for (const r of [nacR, intR]) {
+          // Nacional statement is CLP; international statement is USD.
+          for (const [cur, r] of [["CLP", nacR], ["USD", intR]] as const) {
             if (r.status !== "fulfilled" || !r.value.existeEstadoCuenta) continue;
             const res = r.value;
 
@@ -326,7 +327,7 @@ async function fetchCreditCardData(page: Page, fullName: string, debugLog: strin
               // Skip section-subtotal rows (e.g. "TOTAL PAGOS A LA CUENTA").
               const desc = tx.descripcion.trim().toUpperCase();
               if (desc.startsWith("TOTAL ") && desc.endsWith("A LA CUENTA")) continue;
-              movements.push(facturadoToMovement(tx, MOVEMENT_SOURCE.credit_card_billed, mascara));
+              movements.push(facturadoToMovement(tx, MOVEMENT_SOURCE.credit_card_billed, mascara, cur));
             }
 
             // Override nextBillingDate/nextDueDate with accurate date-format values from resumen

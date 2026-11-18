@@ -128,3 +128,10 @@ describe("normalizeDate", () => {
     expect(normalizeDate("2/3/2026")).toBe("02-03-2026");
   });
 });
+
+describe("currency-aware dedup", () => {
+  it("does not merge identical rows in different currencies", () => {
+    const base = { date: "01-01-2026", description: "X", amount: -10, balance: 5, source: MOVEMENT_SOURCE.account };
+    expect(deduplicateMovements([{ ...base, currency: "CLP" }, { ...base, currency: "USD" }])).toHaveLength(2);
+  });
+});
