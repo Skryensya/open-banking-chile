@@ -30,8 +30,8 @@ async function launchPlaywright(options: ScraperOptions): Promise<{ browser: Bro
     executablePath: execPath,
     headless: !headful,
     args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
+      ...(process.env.OBC_NO_SANDBOX === "1" || (typeof process.getuid === "function" && process.getuid() === 0)
+        ? ["--no-sandbox", "--disable-setuid-sandbox"] : []),
       "--disable-dev-shm-usage",
       "--disable-gpu",
       "--disable-blink-features=AutomationControlled",

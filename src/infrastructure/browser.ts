@@ -20,9 +20,12 @@ export interface BrowserSession {
   screenshot: (page: Page, name: string) => Promise<void>;
 }
 
+// Sandbox stays ON. Only disable it when running as root (Docker) or by explicit opt-in.
+const NO_SANDBOX =
+  process.env.OBC_NO_SANDBOX === "1" || (typeof process.getuid === "function" && process.getuid() === 0);
+
 const DEFAULT_ARGS = [
-  "--no-sandbox",
-  "--disable-setuid-sandbox",
+  ...(NO_SANDBOX ? ["--no-sandbox", "--disable-setuid-sandbox"] : []),
   "--disable-dev-shm-usage",
   "--disable-gpu",
   "--window-size=1280,900",
@@ -82,6 +85,8 @@ export async function launchBrowser(
     executablePath,
     headless: forceHeadful ? false : !headful,
     args: [...DEFAULT_ARGS, ...(extraArgs || [])],
+    // Don't hand every secret in the parent env (e.g. other banks' *_PASS) to Chrome.
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, DISPLAY: process.env.DISPLAY, WAYLAND_DISPLAY: process.env.WAYLAND_DISPLAY, XDG_RUNTIME_DIR: process.env.XDG_RUNTIME_DIR, TMPDIR: process.env.TMPDIR },
   });
 
   const page = await browser.newPage();

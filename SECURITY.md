@@ -20,6 +20,13 @@ Este proyecto maneja credenciales bancarias. La seguridad no es negociable.
 - **NUNCA** subas screenshots a repositorios públicos
 - La carpeta `screenshots/` está en `.gitignore` por esta razón
 
+### 4. Navegador y entorno
+- Chrome corre **con sandbox** por defecto. `--no-sandbox` solo se activa como root (Docker) o con `OBC_NO_SANDBOX=1`.
+- Chrome recibe un entorno mínimo (PATH, HOME, DISPLAY…); las claves de otros bancos en tu entorno no se le pasan.
+- La salida JSON del CLI no incluye `debug` ni `screenshot`. En caso de error, `debug` se imprime por stderr.
+- El scraper no hace retries de login. Si falla, detente y revisa tu cuenta en el sitio del banco.
+- Ejecuta el CLI desde un directorio vacío o confiable: carga `.env` del directorio actual y ejecuta `CHROME_PATH`.
+
 ## Para contribuidores
 
 ### NO hacer

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import { config } from 'dotenv';
+// dotenv >=17 prints a banner to stdout by default; that corrupts the JSON output.
+process.env.DOTENV_CONFIG_QUIET ??= 'true';
 import { banks, listBanks, getBank } from "./index.js";
 import { Spinner } from "./utils.js";
 config();
@@ -154,7 +156,8 @@ Ejemplos:
     const cardMovements = result.creditCards?.flatMap((c) => c.movements ?? []) ?? [];
     console.log(JSON.stringify([...accountMovements, ...cardMovements], null, indent));
   } else {
-    const { screenshot: _, ...output } = result;
+    // debug carries balances/account masks; screenshot is base64 of the bank page.
+    const { screenshot: _s, debug: _d, ...output } = result;
     console.log(JSON.stringify(output, null, indent));
   }
 }

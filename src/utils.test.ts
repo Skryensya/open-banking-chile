@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { DebugLog, deduplicateMovements } from "./utils.js";
+import { DebugLog, deduplicateMovements, normalizeDate } from "./utils.js";
 import { MOVEMENT_SOURCE } from "./types.js";
 import type { BankMovement } from "./types.js";
 
@@ -116,5 +116,15 @@ describe("deduplicateMovements", () => {
     const b = movement({ description: "B", balance: 200 });
     const result = deduplicateMovements([a, b, a]);
     expect(result.map((m) => m.description)).toEqual(["A", "B"]);
+  });
+});
+
+describe("normalizeDate", () => {
+  it("converts ISO dates (with or without time) to dd-mm-yyyy", () => {
+    expect(normalizeDate("2026-03-22")).toBe("22-03-2026");
+    expect(normalizeDate("2026-03-22T14:30:00")).toBe("22-03-2026");
+  });
+  it("keeps dd/mm/yyyy behavior", () => {
+    expect(normalizeDate("2/3/2026")).toBe("02-03-2026");
   });
 });

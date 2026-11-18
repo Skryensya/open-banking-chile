@@ -41,7 +41,9 @@ export async function runScraper(
       !!saveScreenshots,
     );
 
-    return await scrapeFn(session, options);
+    const result = await scrapeFn(session, options);
+    if (!saveScreenshots) delete result.screenshot;
+    return result;
   } catch (error) {
     return {
       success: false,

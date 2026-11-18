@@ -6,6 +6,8 @@ Scrapers open source para bancos chilenos. Obtén tus movimientos bancarios y sa
 
 ## Migración v2 → v3
 
+> Nota: `package.json` aún declara `2.0.0`; la estructura v3 descrita abajo ya está implementada.
+
 **v3.0.0 introduce un cambio breaking en `ScrapeResult`:**
 
 Los movimientos ya no están en un array plano `result.movements` — ahora viven dentro de cada cuenta/tarjeta:
@@ -40,7 +42,7 @@ Los campos `movements` y `balance` en `ScrapeResult` se mantienen como `@depreca
 
 El campo `source` ahora es **obligatorio** e indica el origen del movimiento. Si construyes objetos `BankMovement` manualmente, agrega `source: "account"`. Si solo consumes resultados del scraper, no hay cambios necesarios.
 
-También en esta versión: utilidades compartidas (`parseChileanAmount`, `normalizeDate`, `deduplicateMovements`, etc.) disponibles como exports desde `open-banking-chile/utils`.
+También en esta versión: utilidades compartidas (`parseChileanAmount`, `normalizeDate`, `deduplicateMovements`, etc.) (hoy solo el export raíz `.` existe; no hay `open-banking-chile/utils`).
 
 ## Bancos soportados
 
@@ -106,9 +108,13 @@ BICE_MONTHS=1
 SANTANDER_RUT=12345678-9
 SANTANDER_PASS=tu_clave
 
-# Banco de Chile
-BANCOCHILE_RUT=12345678-9
-BANCOCHILE_PASS=tu_clave
+# Banco de Chile (el CLI usa el id del banco: BCHILE_*)
+BCHILE_RUT=12345678-9
+BCHILE_PASS=tu_clave
+
+# BCI
+BCI_RUT=12345678-9
+BCI_PASS=tu_clave
 
 # Banco Edwards
 EDWARDS_RUT=12345678-9
